@@ -76,7 +76,8 @@ module AfipWebservices
     def setup_request
       request = {}
       @batch.each_with_index do |invoice, index|
-        cbte = last_cbte(pto_vta: cbte_pto_venta.to_i, cbte_tipo: cbte_type.to_i) + index
+        last_cbte_options = { 'PtoVta' => cbte_pto_venta, 'CbteTipo' => cbte_type }
+        cbte = last_cbte(last_cbte_options) + index
         request << WSFEInvoice.setup_invoice(invoice, cbte)
       end
       request
