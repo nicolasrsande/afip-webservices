@@ -1,7 +1,7 @@
 module AfipWebservices
   class Client
     def initialize(savon_options)
-      @savon = Savon.client savon_options.reverse_merge(soap_version: 2, ssl_version: :TLSv1_2)
+      @savon = Savon.client savon_options.reverse_merge(soap_version: 2, ssl_version: :TLSv1_2).merge!(AfipWebservices.logger_options)
     end
 
     def request(action, body = nil)

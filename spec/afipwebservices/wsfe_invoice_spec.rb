@@ -8,8 +8,7 @@ module AfipWebservices
       net: 2243.4,
       iva: 471.11,
       total: 2714.51,
-      iva_detail: [{ 'Id' => 5, 'BaseImp' => 2243.4, 'Importe' => 471.11 },
-                   { 'Id' => 5, 'BaseImp' => 2243.4, 'Importe' => 471.11 }]
+      iva_detail: [{ 'Id' => 5, 'BaseImp' => 2243.4, 'Importe' => 471.11 }]
     }
     
 

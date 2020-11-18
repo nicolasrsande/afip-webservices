@@ -32,8 +32,47 @@ require 'afipwebservices/wsfe/wsfe_invoice'
 #
 module AfipWebservices
 
+  # This class handles the logging options
+  #
+  class Logger < Struct.new(:log, :pretty_xml, :level)
+    # @param opts [Hash] receives a hash with keys `log`, `pretty_xml` (both
+    # boolean) or the desired log level as `level`
+
+    def initialize(opts = {})
+      self.log = opts[:log] || true
+      self.pretty_xml = opts[:pretty_xml] || log
+      self.level = opts[:level] || :debug
+    end
+
+    # @return [Hash] returns a hash with the proper logging optios for Savon.
+    def logger_options
+      { log: log, pretty_print_xml: pretty_xml, log_level: level }
+    end
+  end
+
   extend self
 
   attr_accessor :pkey, :cert, :env, :default_cuit
+
+  class << self
+    # Receiver of the logging configuration options.
+    # @param opts [Hash] pass a hash with `log`, `pretty_xml` and `level` keys
+    # to set them.
+    def logger=(opts)
+      @logger ||= Logger.new(opts)
+    end
+
+    # Sets the logger options to the default values or returns the previously
+    # set logger options
+    # @return [Logger]
+    def logger
+      @logger ||= Logger.new
+    end
+
+    # Returns the formatted logger options to be used by Savon.
+    def logger_options
+      logger.logger_options
+    end
+  end
 
 end
