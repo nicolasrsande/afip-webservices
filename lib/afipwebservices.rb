@@ -27,26 +27,10 @@ require 'afipwebservices/wsfe/wsfe'
 require 'afipwebservices/wsfe/wsfe_invoice'
 
 
-
+# AfipWebservice is a multi-purpose wrapper for the AFIP APIs and Services
+# Author: Nicolas Rodriguez (nicolasrsande@gmail.com)
+#
 module AfipWebservices
-  
-  # This class handles the logging options
-  #
-  class Logger < Struct.new(:log, :pretty_xml, :level)
-    # @param opts [Hash] receives a hash with keys `log`, `pretty_xml` (both
-    # boolean) or the desired log level as `level`
-
-    def initialize(opts = {})
-      self.log = opts[:log] || false
-      self.pretty_xml = opts[:pretty_xml] || log
-      self.level = opts[:level] || :debug
-    end
-
-    # @return [Hash] returns a hash with the proper logging optios for Savon.
-    def logger_options
-      { log: log, pretty_print_xml: pretty_xml, log_level: level }
-    end
-  end
 
   extend self
 

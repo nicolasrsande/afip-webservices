@@ -1,5 +1,4 @@
 module AfipWebservices
-  # rubocop:disable Metrics/LineLength
   # This is the Invoice Class witch will map, order and generate body params to the Afip Auth.
   # Define la estructura que deben tener los comprobantes para ser parseados al formato de la API.
   #
@@ -15,11 +14,11 @@ module AfipWebservices
     # rubocop:disable Metrics/MethodLength
     # rubocop:disable Metrics/AbcSize
     def initialize(params = {})
-      @issue_date = params[:issue_date]
-      @due_date = params[:due_date]
-      @date_from = params[:date_from]
-      @date_to = params[:date_to]
-      @document_type = params[:document_type]
+      @issue_date = params[:issue_date] || today
+      @due_date = params[:due_date] || today
+      @date_from = params[:date_from] || today
+      @date_to = params[:date_to] || today
+      @document_type = params[:document_type] || 80 # Default to "CUIT"
       @document_number = params[:document_number]
       @cbte_number = params[cbte_number]
       @net = params[:net].to_f.round(2) || 0.00
@@ -27,11 +26,9 @@ module AfipWebservices
       @iva = params[:iva].to_f.round(2) || 0.00
       @other_taxes = params[:other_taxes].to_f.round(2) || 0.00
       @total = params[:total]
-      @currency = params[:currency]
-      @currency_cot = params[:currency_cot]
-      @afip_concept = params[:afip_concept]
-
-      # Arrays for taxes and associations:
+      @currency = params[:currency] || 'PES' # Default: "Pesos"
+      @currency_cot = params[:currency_cot] || 1 # Default: 1
+      @afip_concept = params[:afip_concept] || 3 # Default to "Productos y Servicios"
       @iva_detail = params[:iva_detail] || [] # Format: [ {}, {}, ..., {} ]
       @other_taxes_detail = params[:other_taxes_detail] || [] # Format: [ {}, {}, ..., {} ]
       @cbtes_asoc = params[cbtes_asoc_detail] || [] # Format: [ {}, {}, ..., {} ]
@@ -44,90 +41,27 @@ module AfipWebservices
     # This method converts and maps invoice object values to the AFIP API required format.
     # @return [Hash]
     #
-    def self.setup_invoice(invoice, cbte)
+    def self.setup_invoice(invoice, cbte_index)
       detail = {}
-      detail['Concepto']      = invoice.afip_concept || '03' # Default to "Productos y Servicios"
-      detail['DocTipo']       = invoice.document_type || '80' # Default to "CUIT" if not informed
+      detail['Concepto']      = invoice.afip_concept
+      detail['DocTipo']       = invoice.document_type
       detail['DocNro']        = invoice.document_number
-      detail['CbteDesde']     = detail['CbteHasta'] = invoice.cbte_number || cbte
-      detail['CbteFch']       = parse_date(invoice.issue_date) || today
+      detail['CbteDesde']     = detail['CbteHasta'] = invoice.cbte_number || cbte_index
+      detail['CbteFch']       = invoice.issue_date.strftime('%Y%m%d')
       detail['ImpTotal']      = invoice.total
-      detail['ImpTotConc']    = 0.00 # TODO: What it is this field? Default 0
-      detail['ImpNeto']       = invoice.net || 0.00
-      detail['ImpOpEx']       = invoice.exempt || 0.00
-      detail['ImpTrib']       = invoice.other_taxes || 0.00
-      detail['ImpIVA']        = invoice.iva || 0.00
-      detail['FchServDesde']  = parse_date(invoice.date_from) || today
-      detail['FchServHasta']  = parse_date(invoice.date_to) || today
-      detail['FchVtoPago']    = parse_date(invoice.due_date) || today
-      detail['MonId']         = invoice.currency || 'PES' # Default: "Pesos"
-      detail['MonCotiz']      = invoice.currency_cot || 1 # Default: 1
-
-      # Merge CbtesAsoc Hash to the Detail
-      detail.merge!(setup_cbtes_asoc(invoice)) unless invoice.cbtes_asoc_detail.empty?
-
-      # Merge Tributos Hash to the Detail
-      detail.merge!(setup_tributos(invoice)) unless invoice.net.zero? || invoice.iva_detail.empty?
-
-      # Merge IVA Hash to the Detail
-      detail.merge!(setup_iva(invoice)) unless invoice.other_taxes.zero? || invoice.other_taxes_detail.empty?
-    end
-
-    # <------------------- PRIVATE METHODS -------------------> #
-    private
-
-    # Generates the IVA Hash for each iva aliquot passed in the invoice object
-    #
-    # The Iva Hash MUST be an array in this format.
-    # [ {'Id' => 2, 'BaseImp' => 2331.3, 'Importe' => 234.2 },
-    # { 'Id' => 1, 'BaseImp' => 2331.3, 'Importe' => 234.2 } ]
-    #
-    # @return [Hash]
-    #
-    def setup_iva(invoice)
-      return nil if invoice.net.zero?
-
-      iva = {}
-      invoice.iva_detail.each do |alic_iva|
-        iva['Iva'] << { 'AlicIva' => alic_iva }
-      end
-      iva
-    end
-
-    # Generates the "Tributos" Hash for each tributo aliquot passed in the invoice object
-    #
-    # The Tributos Hash MUST be an array in this format.
-    # [ {'Id' => 2, 'Desc' => 'Ingresos Brutos', BaseImp' => 2331.3, 'Alic' => 3, Importe' => 234.2 },
-    # {'Id' => 2, 'Desc' => 'Ingresos Brutos', BaseImp' => 2331.3, 'Alic' => 3, Importe' => 234.2 } ]
-    #
-    # @return [Hash]
-    #
-    def setup_tributos(invoice)
-      return nil if invoice.other_taxes.zero?
-
-      otros_tributos = {}
-      invoice.other_taxes_detail.each do |other_tax|
-        otros_tributos['Tributos'] << { 'Tributo' => other_tax }
-      end
-      otros_tributos
-    end
-
-    # Generates the "CbtesAsoc" Hash for each CbteAsoc  passed in the invoice object
-    #
-    # The Tributos Hash MUST be an array in this format.
-    # [ {'Tipo' => 2, 'PtoVta' => '1, 'Nro' => 2333 },
-    # {'Tipo' => 2, 'PtoVta' => '1, 'Nro' => 2333 } ]
-    #
-    # @return [Hash]
-    #
-    def setup_cbtes_asoc(invoice)
-      return nil if invoice.cbtes_asoc_detail.empty?
-
-      cbtes_asoc = {}
-      invoice.cbtes_asoc_detail.each do |cbte|
-        cbtes_asoc['CbtesAsoc'] << { 'CbteAsoc' => cbte }
-      end
-      cbtes_asoc
+      detail['ImpTotConc']    = 0.00
+      detail['ImpNeto']       = invoice.net
+      detail['ImpOpEx']       = invoice.exempt
+      detail['ImpTrib']       = invoice.other_taxes
+      detail['ImpIVA']        = invoice.iva
+      detail['FchServDesde']  = invoice.date_from.strftime('%Y%m%d')
+      detail['FchServHasta']  = invoice.date_to.strftime('%Y%m%d')
+      detail['FchVtoPago']    = invoice.due_date.strftime('%Y%m%d')
+      detail['MonId']         = invoice.currency
+      detail['MonCotiz']      = invoice.currency_cot
+      detail.merge!(invoice.setup_cbtes_asoc) unless invoice.cbtes_asoc_detail.nil?
+      detail.merge!(invoice.setup_tributos) unless invoice.other_taxes.zero? || invoice.other_taxes_detail.nil?
+      detail.merge!(invoice.setup_iva) unless invoice.net.zero? || invoice.iva_detail.nil?
     end
 
     # Validates that invoice attributes are correct when converting it to AFIP Hash
@@ -140,24 +74,85 @@ module AfipWebservices
       validate_concept
     end
 
+    # Generates the IVA Hash for each iva aliquot passed in the invoice object
+    #
+    # The Iva Hash MUST be an array in this format.
+    # [ {'Id' => 2, 'BaseImp' => 2331.3, 'Importe' => 234.2 },
+    # { 'Id' => 1, 'BaseImp' => 2331.3, 'Importe' => 234.2 } ]
+    #
+    # @return [Hash]
+    #
+    def setup_iva
+      return nil if net.zero?
+
+      iva_hash = {}
+      iva_hash['Iva'] = []
+      iva_detail.each do |iva_aliquot|
+        iva_hash['Iva'] << { 'AlicIva' => iva_aliquot }
+      end
+      iva_hash
+    end
+
+    # Generates the "Tributos" Hash for each tributo aliquot passed in the invoice object
+    #
+    # The Tributos Hash MUST be an array in this format.
+    # [ {'Id' => 2, 'Desc' => 'Ingresos Brutos', BaseImp' => 2331.3, 'Alic' => 3, Importe' => 234.2 },
+    # {'Id' => 2, 'Desc' => 'Ingresos Brutos', BaseImp' => 2331.3, 'Alic' => 3, Importe' => 234.2 } ]
+    #
+    # @return [Hash]
+    #
+    def setup_tributos
+      return nil if other_taxes.zero?
+
+      tributos_hash = {}
+      tributos_hash['Tributos'] = []
+      other_taxes_detail.each do |other_tax|
+        tributos_hash['Tributos'] << { 'Tributo' => other_tax }
+      end
+      tributos_hash
+    end
+
+    # Generates the "CbtesAsoc" Hash for each CbteAsoc  passed in the invoice object
+    #
+    # The Tributos Hash MUST be an array in this format.
+    # [ {'Tipo' => 2, 'PtoVta' => '1, 'Nro' => 2333 },
+    # {'Tipo' => 2, 'PtoVta' => '1, 'Nro' => 2333 } ]
+    #
+    # @return [Hash]
+    #
+    def setup_cbtes_asoc
+      return nil if cbtes_asoc_detail.empty?
+
+      cbtes_asoc_hash = {}
+      cbtes_asoc_hash['CbtesAsoc'] = []
+      cbtes_asoc_detail.each do |cbte_asoc|
+        cbtes_asoc_hash['CbtesAsoc'] << { 'CbteAsoc' => cbte_asoc }
+      end
+      cbtes_asoc_hash
+    end
+
     # Validates that the total is exactly the sum of all concepts
     def validate_total
-      true unless @total != @net + @exempt + @iva + @other_taxes
+      return true unless @total != @net + @exempt + @iva + @other_taxes
+
       raise Error.new, 'el importe total no coincide con la suma de todos los conceptos monetarios'
     end
 
     def validate_document_number
-      true unless document_number.nil?
+      return true unless document_number.nil?
+
       raise Error.new, 'el numero de documento del comprador es obligaroio'
     end
 
     def validate_document_type
-      true unless document_type.not.included(VALID_DOCUMENT_TYPES)
+      return true if VALID_DOCUMENT_TYPES.include?(document_type)
+
       raise Error.new, 'el tipo de documento informado es invalido'
     end
 
     def validate_concept
-      true unless afip_concept.not.included(VALID_CONCEPTS)
+      return true if VALID_CONCEPTS.include?(afip_concept)
+
       raise Error.new, 'el concepto afip informado es invalido'
     end
 

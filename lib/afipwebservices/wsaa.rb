@@ -8,24 +8,30 @@ module AfipWebservices
     # <------------------- CONFIGURATION -------------------> #
     attr_reader :key, :cert, :service, :ta, :cuit, :client, :env, :ta_path
 
+    # WSAA Class initializes with the minimal params:
+    # WSAA.new(key, cert, service)
+    # --> Optionals: Cuit (default defined by global variable)
+    # --> Optionals: Service (default defined to wsfe if not indicated)
+    #
     def initialize(options = {})
-      @env = AfipWebservices.env
+      @key = options[:key] || AfipWebservices.pkey # Default is defined with global variable
+      @cert = options[:cert] || AfipWebservices.cert # Default is defined with global variable
+      @cuit = options[:cuit] || AfipWebservices.default_cuit # Default is defined with global variable
+      @service = options[:service] || 'wsfe' # Default is defined to 'wsfe' - each service set-up this automatically
+
+      @env = AfipWebservices.env # Defined with global variable, you MUST include ENV in initializer
       @url = AfipWebservices::URLS[env][:wsaa]
-      @key = options[:key] || AfipWebservices.pkey
-      @cert = options[:cert] || AfipWebservices.cert
-      @service = options[:service] || 'wsfe'
-      @cuit = options[:cuit] || AfipWebservices.default_cuit
       @client = Client.new(Hash(options[:savon]).reverse_merge(wsdl: @url))
       @ta_path = options[:ta_path] || File.join(Dir.pwd, 'tmp', "#{@cuit}-#{@env}-#{@service}-ta.dump")
     end
 
-    # <------------------- INSTANCE METHODS -------------------> #
+    # <------------------- PUBLIC METHODS -------------------> #
 
     # Main Method, generates the request to the AFIP Soap API and returns the response ta.
     # Then it saves the ta in /tmp file
     #
     def login
-      response = @client.request :login_cms, in0: tra(@key, @cert, @service)
+      response = @client.request(:login_cms, in0: tra(@key, @cert, @service))
       ta = Nokogiri::XML(Nokogiri::XML(response.to_xml).text)
       {
         token: ta.css('token').text,
@@ -33,13 +39,6 @@ module AfipWebservices
         generation_time: from_xsd_datetime(ta.css('generationTime').text),
         expiration_time: from_xsd_datetime(ta.css('expirationTime').text)
       }
-    end
-
-    # Generates, sign and codify and returns the tra.
-    # @return [String] with the tra codified and signed
-    #
-    def tra(key, cert, service)
-      codify_tra sign_tra(build_tra(service), key, cert)
     end
 
     # Returns the auth hash from ta or generates a new one
@@ -68,6 +67,13 @@ module AfipWebservices
       end
     end
 
+    # Generates, sign and codify and returns the tra.
+    # @return [String] with the tra codified and signed
+    #
+    def tra(key, cert, service)
+      codify_tra(sign_tra(build_tra(service), key, cert))
+    end
+
     # Signs the tra with OpenSSL
     # @return [String]
     #
@@ -80,8 +86,8 @@ module AfipWebservices
     # Codifies the tra in pkcs8
     # @return [String]
     #
-    def codify_tra(pkcs7)
-      pkcs7.to_pem.lines.to_a[1..-2].join
+    def codify_tra(pkcs8)
+      pkcs8.to_pem.lines.to_a[1..-2].join
     end
 
     # <------------------- PRIVATE METHODS -------------------> #
@@ -92,10 +98,10 @@ module AfipWebservices
     #
     def return_ta
       @ta ||= restore_ta
-      if ta_expired?(@ta)
-        @ta = login
-        persist_ta @ta
-      end
+      return @ta unless ta_expired?(@ta)
+
+      @ta = login
+      persist_ta(@ta)
       @ta
     end
 
@@ -104,15 +110,15 @@ module AfipWebservices
     #
     def from_xsd_datetime(str)
       Time.parse(str)
-    rescue
+    rescue StandardError
       nil
     end
 
     # Check if the ta has expired
     # @return [Boolean]
     #
-    def ta_expired?(ta)
-      ta.nil? || ta[:expiration_time] <= Time.now
+    def ta_expired?(ta_dump)
+      ta_dump.nil? || ta_dump[:expiration_time] <= Time.now
     end
 
     # Restores the ta from tmp file if exists
@@ -125,9 +131,9 @@ module AfipWebservices
     # Persists the ta in a /tmp file
     # @return [Integer]
     #
-    def persist_ta(ta)
+    def persist_ta(ta_dump)
       FileUtils.mkdir_p(File.dirname(@ta_path))
-      File.open(@ta_path, 'wb') { |f| f.write(Marshal.dump(ta)) }
+      File.open(@ta_path, 'wb') { |f| f.write(Marshal.dump(ta_dump)) }
     end
 
     # <------------------- END WSAA CLASS -------------------> #

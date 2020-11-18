@@ -4,24 +4,14 @@ module AfipWebservices
   #
   module TypesConversion
 
-    # Parses the date to string format
-    # It is used to comply to AFIP Date Format
-    # @return [String]
-    #
-    def parse_date(date) # TODO: Create a types class?
-      return nil if date.nil?
-
-      date.strftime('%Y%m%d')
-    end
-
     # Returns the current day in string format
     # It is used if no dates are specified in the Hash
-    # @return [String]
+    # @return [Time]
     #
     def today
-      Time.new.strftime('%Y%m%d')
+      Time.now
     end
-    
+
     # <------------------- END MODULE -------------------> #
   end
   # <------------------- END MODULE -------------------> #

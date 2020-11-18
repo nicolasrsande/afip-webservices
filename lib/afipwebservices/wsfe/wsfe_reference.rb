@@ -22,23 +22,19 @@ module AfipWebservices
     # @return [Integer]
     #
     def last_cbte(opciones)
-      request(:fe_comp_ultimo_autorizado, auth.merge(opciones))[:cbte_nro].to_i
+      send_request(:fe_comp_ultimo_autorizado, auth.merge(opciones))[:cbte_nro].to_i
     end
 
-    # Returns the next cbte number.
-    # The options should contain [ PtoVta - CbteTipo ]
-    # @return [Integer]
-    #
     def next_cbte(opciones)
       last_cbte(opciones) + 1
     end
-
+    
     # Returns all valid cbte_types from AFIP Servers
     # Can be used to validations TODO:
     # @return [Hash]
     #
     def cbte_types
-      r = request :fe_param_get_tipos_cbte, auth
+      r = send_request :fe_param_get_tipos_cbte, auth
       x2r get_array(r, :cbte_tipo), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -47,7 +43,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def optionals_types
-      r = request :fe_param_get_tipos_opcional, auth
+      r = send_request :fe_param_get_tipos_opcional, auth
       x2r get_array(r, :tipos_opcional), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -56,7 +52,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def document_types
-      r = request :fe_param_get_tipos_doc, auth
+      r = send_request :fe_param_get_tipos_doc, auth
       x2r get_array(r, :doc_tipo), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -65,7 +61,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def afip_concept_types
-      r = request :fe_param_get_tipos_concepto, auth
+      r = send_request :fe_param_get_tipos_concepto, auth
       x2r get_array(r, :concepto_tipo), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -74,7 +70,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def currency_types
-      r = request :fe_param_get_tipos_monedas, auth
+      r = send_request :fe_param_get_tipos_monedas, auth
       x2r get_array(r, :moneda), fch_desde: :date, fch_hasta: :date
     end
 
@@ -83,7 +79,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def iva_types
-      r = request :fe_param_get_tipos_iva, auth
+      r = send_request :fe_param_get_tipos_iva, auth
       x2r get_array(r, :iva_tipo), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -92,7 +88,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def other_taxes_types
-      r = request :fe_param_get_tipos_tributos, auth
+      r = send_request :fe_param_get_tipos_tributos, auth
       x2r get_array(r, :tributo_tipo), id: :integer, fch_desde: :date, fch_hasta: :date
     end
 
@@ -101,7 +97,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def sale_points_list
-      r = request :fe_param_get_ptos_venta, auth
+      r = send_request :fe_param_get_ptos_venta, auth
       x2r get_array(r, :pto_venta), nro: :integer, fch_baja: :date, bloqueado: :boolean
     end
 
@@ -109,7 +105,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def currency_cot(moneda_id)
-      request(:fe_param_get_cotizacion, auth.merge(mon_id: moneda_id))[:result_get][:mon_cotiz].to_f
+      send_request(:fe_param_get_cotizacion, auth.merge(mon_id: moneda_id))[:result_get][:mon_cotiz].to_f
     end
 
     # Returns and get the max batch register admitted in one request
@@ -117,7 +113,7 @@ module AfipWebservices
     # @return [Hash]
     #
     def cant_max_registros_x_lote
-      request(:fe_comp_tot_x_request, auth)[:reg_x_req].to_i
+      send_request(:fe_comp_tot_x_request, auth)[:reg_x_req].to_i
     end
 
     # END REFERENCE MODULE #
